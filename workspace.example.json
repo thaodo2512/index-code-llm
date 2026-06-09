@@ -1,0 +1,21 @@
+{
+  "root": "/ws",
+  "viewsDir": "/ws/.codegraph-workspace/views",
+  "repos": [
+    {
+      "name": "linux",
+      "path": "/ws/linux",
+      "scope": ["include", "kernel", "arch/arm64", "drivers/foo"]
+    },
+    {
+      "name": "zephyr",
+      "path": "/ws/zephyr",
+      "scope": ["kernel", "include", "soc/x", "drivers/y"]
+    },
+    {
+      "name": "myapp",
+      "path": "/ws/myapp",
+      "scope": ["."]
+    }
+  ]
+}

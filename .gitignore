@@ -1,0 +1,24 @@
+# AI-assistant config & planning scratch — kept locally, never published
+CLAUDE.md
+AGENTS.md
+.claude/
+.cursor/
+.codex/
+.github/copilot-instructions.md
+*.plan.md
+docs/plan*.md
+
+# Local runtime / machine-specific data
+views/
+.codegraph/
+workspace.json
+
+# Build output & dependencies
+dist/
+node_modules/
+*.tsbuildinfo
+
+# Logs & misc
+*.log
+.DS_Store
+coverage/
