@@ -1,0 +1,17 @@
+node_modules
+dist
+deploy
+.git
+.gitignore
+test
+coverage
+*.log
+CLAUDE.md
+AGENTS.md
+.claude
+.cursor
+.codex
+workspace.json
+views
+**/*.tsbuildinfo
+.DS_Store

@@ -22,3 +22,7 @@ node_modules/
 *.log
 .DS_Store
 coverage/
+
+# Generated deployments (machine-specific)
+deploy/
+.env

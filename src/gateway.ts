@@ -49,118 +49,123 @@ function reflectTool(tool: Tool, repoNames: string[]): { ws: Tool; codegraphName
   return { ws, codegraphName: tool.name };
 }
 
-export interface Gateway {
-  server: Server;
-  close(): Promise<void>;
-}
+/**
+ * Shared gateway state: the workspace registry plus ONE long-lived CodeGraph
+ * child. Multiple MCP transports (stdio, or one per HTTP session) can share a
+ * single backend, so we never spawn a child per connection.
+ */
+export class GatewayBackend {
+  private readonly repoNames: string[];
+  private readonly aggregators: Tool[];
+  private readonly child = new CodegraphChild();
+  private reflected: Tool[] | null = null;
+  private readonly wsToCodegraph = new Map<string, string>();
 
-/** Build the workspace MCP server over a registry. Caller wires the transport. */
-export function createGateway(ws: Workspace): Gateway {
-  const child = new CodegraphChild();
-  const repoNames = ws.repos.map((r) => r.name);
-
-  const aggregatorTools: Tool[] = [
-    {
-      name: 'workspace_search',
-      description:
-        'Fuzzy symbol search across ALL workspace repos (or a subset). Returns ranked hits ' +
-        'tagged with their repo. Use this first to find where a symbol lives across repos.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: 'Symbol name or partial name' },
-          repos: {
-            type: 'array',
-            items: { type: 'string', enum: repoNames },
-            description: 'Limit to these repos (default: all)',
+  constructor(private readonly ws: Workspace) {
+    this.repoNames = ws.repos.map((r) => r.name);
+    this.aggregators = [
+      {
+        name: 'workspace_search',
+        description:
+          'Fuzzy symbol search across ALL workspace repos (or a subset). Returns ranked hits ' +
+          'tagged with their repo. Use this first to find where a symbol lives across repos.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Symbol name or partial name' },
+            repos: {
+              type: 'array',
+              items: { type: 'string', enum: this.repoNames },
+              description: 'Limit to these repos (default: all)',
+            },
+            kind: { type: 'string', description: 'Filter by node kind (function, class, ...)' },
+            limit: { type: 'number', description: 'Max total hits (default 30)' },
           },
-          kind: { type: 'string', description: 'Filter by node kind (function, class, ...)' },
-          limit: { type: 'number', description: 'Max total hits (default 30)' },
-        },
-        required: ['query'],
-      },
-    },
-    {
-      name: 'workspace_repos',
-      description:
-        'List workspace repos with index stats (files/nodes/edges/size). Cheap by default; ' +
-        'pass includeFreshness:true to also report pending (un-synced) changes.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          repos: { type: 'array', items: { type: 'string', enum: repoNames } },
-          includeFreshness: { type: 'boolean', description: 'Run a change scan (slower)' },
+          required: ['query'],
         },
       },
-    },
-  ];
+      {
+        name: 'workspace_repos',
+        description:
+          'List workspace repos with index stats (files/nodes/edges/size). Cheap by default; ' +
+          'pass includeFreshness:true to also report pending (un-synced) changes.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            repos: { type: 'array', items: { type: 'string', enum: this.repoNames } },
+            includeFreshness: { type: 'boolean', description: 'Run a change scan (slower)' },
+          },
+        },
+      },
+    ];
+  }
 
-  // Reflected passthrough tools are discovered from the child lazily and cached.
-  let reflected: Tool[] | null = null;
-  const wsToCodegraph = new Map<string, string>();
-
-  async function ensureReflected(): Promise<Tool[]> {
-    if (reflected) return reflected;
+  private async ensureReflected(): Promise<Tool[]> {
+    if (this.reflected) return this.reflected;
     try {
-      const tools = await child.listTools();
+      const tools = await this.child.listTools();
       const built: Tool[] = [];
       for (const t of tools) {
         if (SKIP_REFLECT.has(t.name) || !t.name.startsWith('codegraph_')) continue;
-        const { ws: wsTool, codegraphName } = reflectTool(t, repoNames);
-        wsToCodegraph.set(wsTool.name, codegraphName);
+        const { ws: wsTool, codegraphName } = reflectTool(t, this.repoNames);
+        this.wsToCodegraph.set(wsTool.name, codegraphName);
         built.push(wsTool);
       }
-      reflected = built;
+      this.reflected = built;
     } catch (e) {
-      process.stderr.write(`codegraph-workspace: child unavailable, passthrough tools disabled: ${(e as Error).message}\n`);
+      process.stderr.write(
+        `codegraph-workspace: child unavailable, passthrough tools disabled: ${(e as Error).message}\n`,
+      );
       return [];
     }
-    return reflected;
+    return this.reflected;
   }
 
-  const server = new Server(
-    { name: 'codegraph-workspace', version: '0.1.0' },
-    { capabilities: { tools: {} } },
-  );
+  async listToolDefs(): Promise<Tool[]> {
+    return [...this.aggregators, ...(await this.ensureReflected())];
+  }
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [...aggregatorTools, ...(await ensureReflected())],
-  }));
-
-  server.setRequestHandler(CallToolRequestSchema, async (req): Promise<CallToolResult> => {
-    const { name } = req.params;
-    const args = (req.params.arguments ?? {}) as Record<string, unknown>;
+  async call(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
     try {
       if (name === 'workspace_search') {
-        const repos = selectRepos(ws, args.repos as string[] | undefined);
-        const hits = await searchAll(ws, repos, String(args.query ?? ''), {
+        const repos = selectRepos(this.ws, args.repos as string[] | undefined);
+        const hits = await searchAll(this.ws, repos, String(args.query ?? ''), {
           limit: (args.limit as number | undefined) ?? 30,
           kind: args.kind as string | undefined,
         });
         return textResult({ count: hits.length, hits });
       }
-
       if (name === 'workspace_repos') {
-        const repos = selectRepos(ws, args.repos as string[] | undefined);
-        const stats = await repoStats(ws, repos, Boolean(args.includeFreshness));
-        return textResult(stats);
+        const repos = selectRepos(this.ws, args.repos as string[] | undefined);
+        return textResult(await repoStats(this.ws, repos, Boolean(args.includeFreshness)));
       }
-
-      // Reflected per-repo passthrough.
-      await ensureReflected();
-      const codegraphName = wsToCodegraph.get(name);
+      await this.ensureReflected();
+      const codegraphName = this.wsToCodegraph.get(name);
       if (!codegraphName) return errorResult(`Unknown tool: ${name}`);
       const { repo: repoName, ...rest } = args;
-      const [repo] = selectRepos(ws, [String(repoName)]);
-      const result = await child.callTool(codegraphName, rest, viewPath(ws, repo!));
-      return result as CallToolResult;
+      const [repo] = selectRepos(this.ws, [String(repoName)]);
+      return (await this.child.callTool(codegraphName, rest, viewPath(this.ws, repo!))) as CallToolResult;
     } catch (e) {
       return errorResult(`${name} failed: ${(e as Error).message}`);
     }
-  });
+  }
 
-  return {
-    server,
-    close: () => child.close(),
-  };
+  close(): Promise<void> {
+    return this.child.close();
+  }
+}
+
+/** A new MCP Server wired to a shared backend (one per transport/session). */
+export function createServer(backend: GatewayBackend): Server {
+  const server = new Server(
+    { name: 'codegraph-workspace', version: '0.1.0' },
+    { capabilities: { tools: {} } },
+  );
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: await backend.listToolDefs(),
+  }));
+  server.setRequestHandler(CallToolRequestSchema, (req) =>
+    backend.call(req.params.name, (req.params.arguments ?? {}) as Record<string, unknown>),
+  );
+  return server;
 }

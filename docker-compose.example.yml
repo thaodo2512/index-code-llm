@@ -1,0 +1,30 @@
+# Reference compose file. The deploy scripts generate a concrete one per
+# workspace (with your repo mounts) under deploy/. This shows the shape.
+services:
+  gateway:
+    build:
+      context: .
+      args:
+        CODEGRAPH_VERSION: latest
+    image: codegraph-workspace:local
+    container_name: codegraph-workspace
+    restart: unless-stopped
+    environment:
+      CODEGRAPH_WORKSPACE_CONFIG: /config/workspace.json
+      # Require this bearer token on every HTTP request (omit to disable auth).
+      CGW_TOKEN: ${CGW_TOKEN:-}
+      # Set to 1 to build views + index on container start.
+      CGW_INDEX_ON_START: ${CGW_INDEX_ON_START:-0}
+    ports:
+      # host is bound to localhost only; reach the server from elsewhere via SSH.
+      - "127.0.0.1:${HOST_PORT:-8765}:8765"
+    volumes:
+      - "./workspace.json:/config/workspace.json:ro"
+      - "cgw_views:/data/views"
+      # one read-only mount per repo (the deploy scripts fill these in):
+      - "/abs/path/to/linux:/repos/linux:ro"
+      - "/abs/path/to/zephyr:/repos/zephyr:ro"
+    command: ["serve", "--http", "--host", "0.0.0.0", "--port", "8765"]
+
+volumes:
+  cgw_views:

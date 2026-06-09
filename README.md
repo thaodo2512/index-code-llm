@@ -32,20 +32,39 @@ Each repo is indexed through a **view**: a directory of symlinks pointing only a
 chose. CodeGraph indexes the view, so the index is naturally scoped and its data lives next to the
 view — never inside your real repository.
 
-## Requirements
+## Deploy with Docker (recommended)
 
-- [CodeGraph](https://github.com/colbymchenry/codegraph) on `PATH` (or set `CODEGRAPH_BIN`).
-- Node.js ≥ 20.
+Everything — the gateway **and** CodeGraph — runs in a container, so the only requirement on the
+host is Docker. Two guided scripts walk you through setup (prompting for repos, scopes, and ports,
+and validating each answer — e.g. if a port is busy it offers the next free one):
 
-## Install
+```bash
+# On your laptop: gateway + your repos, all local. Client connects over localhost.
+./scripts/local_deploy.sh
+
+# On a powerful server: index there, query from your laptop over SSH.
+./scripts/remote_deploy.sh
+```
+
+Each script generates a `deploy/<name>/` folder (`docker-compose.yml`, `workspace.json`, `.env`),
+builds the image, starts the container, indexes your repos, and prints the exact MCP client config
+to paste in. The server listens on a port you choose (bound to localhost), with optional bearer-token
+auth; `remote_deploy.sh` also sets up the SSH tunnel.
+
+**Requirements:** Docker Engine with the Compose plugin (on the host that runs the container). For
+`remote_deploy.sh`, also `ssh` + `rsync` locally and Docker on the server.
+
+## Run without Docker
+
+Requires [CodeGraph](https://github.com/colbymchenry/codegraph) on `PATH` (or `CODEGRAPH_BIN`) and
+Node ≥ 20.
 
 ```bash
 npm install -g codegraph-workspace
-# or run from a clone:
-npm install && npm run build
+# or from a clone: npm install && npm run build
 ```
 
-## Quick start (on the server)
+## Quick start (manual / on the server)
 
 1. Describe your workspace in `workspace.json` (see `workspace.example.json`):
 
@@ -78,20 +97,33 @@ npm install && npm run build
    codegraph-workspace sync
    ```
 
-## Connect a client (on the laptop)
+## Connect a client
 
-The server is reached by launching it over SSH; stdio is tunneled through the connection. Point
-`CODEGRAPH_WORKSPACE_CONFIG` at your registry on the server.
+Two transports are supported (the deploy scripts print a ready-to-paste config for you):
 
-| Client | Config file | Entry |
-|---|---|---|
-| Claude Code | `~/.claude.json` | `"workspace": { "type": "stdio", "command": "ssh", "args": ["devserver", "codegraph-workspace", "serve", "--stdio"] }` |
-| Codex CLI | `~/.codex/config.toml` | `[mcp_servers.workspace]`<br>`command = "ssh"`<br>`args = ["devserver", "codegraph-workspace", "serve", "--stdio"]` |
-| Cursor | `~/.cursor/mcp.json` | same JSON shape as Claude Code |
-| opencode | `~/.config/opencode/opencode.jsonc` | `"workspace": { "type": "local", "command": ["ssh", "devserver", "codegraph-workspace", "serve", "--stdio"] }` |
+**Streamable HTTP** (used by the Docker deploys) — point the client at the server's URL:
 
-Tip: enable SSH connection reuse (`ControlMaster auto`, `ControlPersist 10m` in `~/.ssh/config`) so
-repeated sessions are instant.
+```jsonc
+// Claude Code (~/.claude.json)
+"mcpServers": {
+  "workspace": {
+    "type": "http",
+    "url": "http://127.0.0.1:8765/mcp",
+    "headers": { "Authorization": "Bearer <token>" }
+  }
+}
+```
+
+**Stdio** (no port; works with every MCP client) — launch the server as a command:
+
+| Setup | Command / args |
+|---|---|
+| Docker, local | `command: docker`, `args: ["exec", "-i", "<container>", "codegraph-workspace", "serve", "--stdio"]` |
+| Docker, remote | `command: ssh`, `args: ["devserver", "docker", "exec", "-i", "<container>", "codegraph-workspace", "serve", "--stdio"]` |
+| No Docker, remote | `command: ssh`, `args: ["devserver", "codegraph-workspace", "serve", "--stdio"]` |
+
+Tip: for SSH, enable connection reuse (`ControlMaster auto`, `ControlPersist 10m` in `~/.ssh/config`)
+so repeated sessions are instant.
 
 ## MCP tools
 
@@ -108,8 +140,11 @@ codegraph-workspace build-views [-r <repo...>]      # materialize views from the
 codegraph-workspace index       [-r <repo...>] [-f] # build views and full-index
 codegraph-workspace sync        [-r <repo...>]       # rebuild views and incrementally sync
 codegraph-workspace status      [-r <repo...>] [--freshness] [--json]
-codegraph-workspace serve       --stdio              # run the MCP server
+codegraph-workspace serve       --stdio                          # MCP over stdio (default)
+codegraph-workspace serve       --http [--host H] [--port N] [--token T]   # MCP over HTTP
 ```
+
+`--token` (or `CGW_TOKEN`) requires `Authorization: Bearer <token>` on every HTTP request.
 
 `-c, --config <path>` selects the registry (default `./workspace.json` or
 `CODEGRAPH_WORKSPACE_CONFIG`).

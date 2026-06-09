@@ -2,7 +2,8 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { Command } from 'commander';
 import { repoStats } from './aggregate.js';
-import { createGateway } from './gateway.js';
+import { GatewayBackend, createServer } from './gateway.js';
+import { serveHttp } from './httpServer.js';
 import { indexRepo, syncRepo } from './indexer.js';
 import { buildView } from './viewbuilder.js';
 import { loadWorkspace, selectRepos, viewPath } from './registry.js';
@@ -88,15 +89,33 @@ program
 
 program
   .command('serve')
-  .description('Run the workspace MCP server (stdio)')
-  .option('--stdio', 'Use stdio transport (default and only transport today)', true)
-  .action(async () => {
-    const gateway = createGateway(ws());
+  .description('Run the workspace MCP server')
+  .option('--http', 'Use Streamable HTTP transport (listens on a port)')
+  .option('--stdio', 'Use stdio transport (default)')
+  .option('--host <host>', 'HTTP bind address', '127.0.0.1')
+  .option('--port <port>', 'HTTP port', '8765')
+  .option('--path <path>', 'HTTP endpoint path', '/mcp')
+  .option('--token <token>', 'Require this bearer token (or set CGW_TOKEN)')
+  .action(async (o: { http?: boolean; host: string; port: string; path: string; token?: string }) => {
+    const backend = new GatewayBackend(ws());
+    if (o.http) {
+      const port = Number(o.port);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        throw new Error(`Invalid --port: ${o.port}`);
+      }
+      await serveHttp(backend, {
+        host: o.host,
+        port,
+        path: o.path,
+        token: o.token ?? process.env.CGW_TOKEN,
+      });
+      return;
+    }
     const transport = new StdioServerTransport();
-    await gateway.server.connect(transport);
+    await createServer(backend).connect(transport);
     process.stderr.write('codegraph-workspace: MCP server ready (stdio)\n');
     const shutdown = async () => {
-      await gateway.close();
+      await backend.close();
       process.exit(0);
     };
     process.on('SIGINT', shutdown);
