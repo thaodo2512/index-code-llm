@@ -155,20 +155,24 @@ ssh "$SSH" "cd '$REMOTE_ABS/deploy' && docker compose exec -T gateway node /app/
 ssh "$SSH" "cd '$REMOTE_ABS/deploy' && docker compose exec -T gateway node /app/dist/cli.js status" || true
 
 hr
-ok "${BOLD}Deployed.${RST} Open the SSH tunnel, then point your client at it."
+ok "${BOLD}Deployed.${RST} Connect your MCP client — pick ${BOLD}ONE${RST} of the two options."
 info ""
-info "${BOLD}1) Tunnel${RST} (keep running, or add -f to background it):"
-info "   ssh -N -L $LOCAL_PORT:127.0.0.1:$REMOTE_PORT $SSH"
-if confirm_yes "Start the tunnel in the background now?"; then
+info "${BOLD}OPTION A — stdio over SSH (recommended: no tunnel, nothing to keep running)${RST}"
+info "  The client launches this command by itself every session:"
+info "    command: ssh"
+info "    args:    [\"$SSH\", \"docker\", \"exec\", \"-i\", \"$PROJECT\", \"codegraph-workspace\", \"serve\", \"--stdio\"]"
+info "  Tip: ControlMaster/ControlPersist in ~/.ssh/config makes repeat sessions instant."
+info ""
+info "${BOLD}OPTION B — HTTP through an SSH tunnel (token auth; for HTTP-preferring clients)${RST}"
+info "  Clients do NOT start the tunnel for you — keep it running yourself:"
+info "    ssh -N -L $LOCAL_PORT:127.0.0.1:$REMOTE_PORT $SSH        # add -f to background it"
+info "  Claude Code (~/.claude.json):"
+printf '  "mcpServers": {\n    "workspace": {\n      "type": "http",\n      "url": "http://127.0.0.1:%s/mcp",\n      "headers": { "Authorization": "Bearer %s" }\n    }\n  }\n' "$LOCAL_PORT" "$TOKEN"
+if confirm "Using Option B? Start the tunnel in the background now? (won't survive a reboot)"; then
   ssh -f -N -L "$LOCAL_PORT:127.0.0.1:$REMOTE_PORT" "$SSH" && ok "tunnel listening on 127.0.0.1:$LOCAL_PORT"
 fi
 info ""
-info "${BOLD}2) Claude Code${RST} (~/.claude.json):"
-printf '  "mcpServers": {\n    "workspace": {\n      "type": "http",\n      "url": "http://127.0.0.1:%s/mcp",\n      "headers": { "Authorization": "Bearer %s" }\n    }\n  }\n' "$LOCAL_PORT" "$TOKEN"
-info ""
-info "${BOLD}Alternative — no tunnel, any MCP client${RST} (stdio over SSH):"
-info "  command: ssh"
-info "  args:    [\"$SSH\", \"docker\", \"exec\", \"-i\", \"$PROJECT\", \"codegraph-workspace\", \"serve\", \"--stdio\"]"
+info "Sample configs for Codex / Cursor / opencode (both options): clients/ in this repo."
 info ""
 # Local wrapper: run day-2 commands from this laptop, forwarded over SSH.
 mkdir -p "$ROOT/deploy/$PROJECT"
