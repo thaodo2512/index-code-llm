@@ -98,18 +98,20 @@ HOST_PORT=$REMOTE_PORT
 CGW_TOKEN=$TOKEN
 CGW_INDEX_ON_START=0
 EOF
+chmod 600 "$STAGE/deploy/.env"   # holds the bearer token; rsync -a preserves the mode
 cp "$HERE/cgw.sh" "$STAGE/deploy/cgw" && chmod +x "$STAGE/deploy/cgw"
 
 cat > "$STAGE/deploy/docker-compose.yml" <<EOF
 services:
   gateway:
     build:
+      # CodeGraph is pinned in the Dockerfile (ARG CODEGRAPH_VERSION).
       context: REMOTE_DIR_PLACEHOLDER/source
-      args:
-        CODEGRAPH_VERSION: latest
     image: codegraph-workspace:remote
     container_name: $PROJECT
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       CODEGRAPH_WORKSPACE_CONFIG: /config/workspace.json
       CGW_TOKEN: \${CGW_TOKEN:-}

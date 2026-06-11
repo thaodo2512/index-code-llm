@@ -96,6 +96,8 @@ case "$cmd" in
     name="${1:-}"
     [ -n "$name" ] || { usage; exit 1; }
     keep=0; [ "${2:-}" = "--keep-view" ] && keep=1
+    # slug check guards the rm -rf path below against names like '../..'
+    valid_slug "$name" || die "invalid repo name (use A-Z a-z 0-9 . _ -): $name"
     registered "$name" || die "repo '$name' is not registered"
     [ "$(grep -c '"name"' workspace.json)" -gt 1 ] || die "refusing to remove the last repo"
 

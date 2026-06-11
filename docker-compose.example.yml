@@ -3,12 +3,14 @@
 services:
   gateway:
     build:
+      # CodeGraph is pinned in the Dockerfile (ARG CODEGRAPH_VERSION); override
+      # via args only to test a newer release deliberately.
       context: .
-      args:
-        CODEGRAPH_VERSION: latest
     image: codegraph-workspace:local
     container_name: codegraph-workspace
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       CODEGRAPH_WORKSPACE_CONFIG: /config/workspace.json
       # Require this bearer token on every HTTP request (omit to disable auth).

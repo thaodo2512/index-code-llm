@@ -22,10 +22,17 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY package.json ./
 COPY docker/entrypoint.sh /app/docker/entrypoint.sh
+# Pre-create the views mount point owned by node, so the named volume is
+# writable once we drop root below.
 RUN chmod +x /app/docker/entrypoint.sh /app/dist/cli.js \
-  && ln -s /app/dist/cli.js /usr/local/bin/codegraph-workspace
+  && ln -s /app/dist/cli.js /usr/local/bin/codegraph-workspace \
+  && mkdir -p /data/views && chown node:node /data /data/views
+# CODEGRAPH_NO_DOWNLOAD: never let the CodeGraph shim fetch its bundle from
+# GitHub at runtime — an incomplete install must fail loudly at build time.
 ENV NODE_ENV=production \
-    CODEGRAPH_WORKSPACE_CONFIG=/config/workspace.json
+    CODEGRAPH_WORKSPACE_CONFIG=/config/workspace.json \
+    CODEGRAPH_NO_DOWNLOAD=1
+USER node
 EXPOSE 8765
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:8765/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

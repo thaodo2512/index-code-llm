@@ -72,6 +72,7 @@ HOST_PORT=$HOST_PORT
 CGW_TOKEN=$TOKEN
 CGW_INDEX_ON_START=0
 EOF
+chmod 600 "$DEPLOY_DIR/.env"   # holds the bearer token
 
 cp "$HERE/cgw.sh" "$DEPLOY_DIR/cgw" && chmod +x "$DEPLOY_DIR/cgw"
 
@@ -79,12 +80,13 @@ cat > "$DEPLOY_DIR/docker-compose.yml" <<EOF
 services:
   gateway:
     build:
+      # CodeGraph is pinned in the Dockerfile (ARG CODEGRAPH_VERSION).
       context: $ROOT
-      args:
-        CODEGRAPH_VERSION: latest
     image: codegraph-workspace:local
     container_name: $PROJECT
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       CODEGRAPH_WORKSPACE_CONFIG: /config/workspace.json
       CGW_TOKEN: \${CGW_TOKEN:-}
