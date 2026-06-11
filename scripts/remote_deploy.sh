@@ -17,12 +17,24 @@ need_cmd rsync
 hr; info "${BOLD}codegraph-workspace — remote Docker deploy${RST}"
 info "Indexes on the server; you query it from here over SSH."; hr
 
-# --- ssh target ---
+# --- ssh target (key auth; offer to install the public key if it isn't set up) ---
+ssh_key_ok() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$1" 'true' 2>/dev/null; }
 while true; do
   ask_required SSH "SSH target for the server (e.g. user@host or an ssh alias)"
-  info "Checking SSH connectivity..."
-  if ssh -o ConnectTimeout=10 "$SSH" 'true' 2>/dev/null; then ok "SSH OK"; break; fi
-  warn "Could not connect to '$SSH'. Make sure key auth / your ~/.ssh/config works."
+  info "Checking SSH connectivity (key auth)..."
+  if ssh_key_ok "$SSH"; then ok "SSH key auth OK"; break; fi
+  warn "Could not log in to '$SSH' with key auth."
+  if command -v ssh-copy-id >/dev/null 2>&1 \
+     && confirm_yes "Install your public key on the server now? (ssh-copy-id; asks for the account password once)"; then
+    if ! ls "$HOME"/.ssh/id_*.pub >/dev/null 2>&1; then
+      info "No SSH key found in ~/.ssh — generating one (ed25519)."
+      ssh-keygen -t ed25519 -f "$HOME/.ssh/id_ed25519" || warn "key generation failed"
+    fi
+    if ssh-copy-id "$SSH" && ssh_key_ok "$SSH"; then
+      ok "public key installed — key auth OK"; break
+    fi
+    warn "Key installation failed (or the key needs an agent/passphrase)."
+  fi
   confirm "Try a different target?" || die "Aborted."
 done
 
