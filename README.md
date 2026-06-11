@@ -54,6 +54,30 @@ auth; `remote_deploy.sh` also sets up the SSH tunnel.
 **Requirements:** Docker Engine with the Compose plugin (on the host that runs the container). For
 `remote_deploy.sh`, also `ssh` + `rsync` locally and Docker on the server.
 
+### Day-2 operations: the `./cgw` helper
+
+Every deploy folder also gets a small `cgw` wrapper so you never have to remember
+`docker compose exec …`:
+
+```bash
+cd deploy/<name>
+
+./cgw sync                      # refresh the index after pulls / branch switches
+./cgw status                    # per-repo index stats
+./cgw add-repo myapp ~/src/myapp src lib   # mount + register + index a new repo
+./cgw remove-repo myapp         # unregister + drop its mount and index data
+./cgw logs -f | up | down | restart
+```
+
+For remote deployments the same `deploy/<name>/cgw` is created on your laptop and forwards every
+command to the server over SSH (so paths given to `add-repo` are paths **on the server**).
+
+Why this exists: inside the container the registry is mounted read-only and repos must be
+volume-mounted, so the plain `codegraph-workspace add-repo` CLI can't do the job there. `cgw
+add-repo` edits the deployment's `workspace.json` **and** the compose mounts on the host, recreates
+the container, and indexes the new repo in one step. Indexes don't update by themselves after a
+`git pull` / `git checkout` in a repo — run `./cgw sync` (or put it in cron) to fold the changes in.
+
 ## Run without Docker
 
 Requires [CodeGraph](https://github.com/colbymchenry/codegraph) on `PATH` (or `CODEGRAPH_BIN`) and
@@ -153,6 +177,9 @@ safe scope entries) and updates `workspace.json` atomically, so you never have t
 codegraph-workspace add-repo linux /ws/linux -s kernel include --index
 codegraph-workspace remove-repo linux        # also deletes views/linux (the index)
 ```
+
+(In a Docker deployment use `./cgw add-repo` / `./cgw remove-repo` instead — the container can't
+edit its read-only registry or add its own mounts; see *Day-2 operations* above.)
 
 `--token` (or `CGW_TOKEN`) requires `Authorization: Bearer <token>` on every HTTP request.
 

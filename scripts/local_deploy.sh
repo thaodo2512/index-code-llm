@@ -73,6 +73,8 @@ CGW_TOKEN=$TOKEN
 CGW_INDEX_ON_START=0
 EOF
 
+cp "$HERE/cgw.sh" "$DEPLOY_DIR/cgw" && chmod +x "$DEPLOY_DIR/cgw"
+
 cat > "$DEPLOY_DIR/docker-compose.yml" <<EOF
 services:
   gateway:
@@ -129,5 +131,9 @@ info "${BOLD}Any MCP client — stdio fallback${RST} (no token needed):"
 info "  command: docker"
 info "  args:    [\"exec\", \"-i\", \"$PROJECT\", \"codegraph-workspace\", \"serve\", \"--stdio\"]"
 info ""
-info "Manage:  (cd '$DEPLOY_DIR' && $COMPOSE logs -f | ps | down)"
-info "Re-sync: (cd '$DEPLOY_DIR' && $COMPOSE exec gateway codegraph-workspace sync)"
+info "${BOLD}Day-2 ops${RST} — the ./cgw helper in the deploy folder:"
+info "  cd '$DEPLOY_DIR'"
+info "  ./cgw sync                          # refresh after pulls / branch switches"
+info "  ./cgw status | logs -f | down"
+info "  ./cgw add-repo <name> <path> [subtree...]   # mount + register + index"
+info "  ./cgw remove-repo <name>"

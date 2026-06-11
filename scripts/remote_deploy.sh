@@ -98,6 +98,8 @@ HOST_PORT=$REMOTE_PORT
 CGW_TOKEN=$TOKEN
 CGW_INDEX_ON_START=0
 EOF
+cp "$HERE/cgw.sh" "$STAGE/deploy/cgw" && chmod +x "$STAGE/deploy/cgw"
+
 cat > "$STAGE/deploy/docker-compose.yml" <<EOF
 services:
   gateway:
@@ -168,4 +170,19 @@ info "${BOLD}Alternative — no tunnel, any MCP client${RST} (stdio over SSH):"
 info "  command: ssh"
 info "  args:    [\"$SSH\", \"docker\", \"exec\", \"-i\", \"$PROJECT\", \"codegraph-workspace\", \"serve\", \"--stdio\"]"
 info ""
-info "Re-sync later:  ssh $SSH \"cd '$REMOTE_ABS/deploy' && docker compose exec gateway codegraph-workspace sync\""
+# Local wrapper: run day-2 commands from this laptop, forwarded over SSH.
+mkdir -p "$ROOT/deploy/$PROJECT"
+cat > "$ROOT/deploy/$PROJECT/cgw" <<WRAP
+#!/usr/bin/env bash
+# Day-2 helper for the '$PROJECT' remote deployment — forwards to ./cgw on the
+# server. NOTE: paths given to add-repo are paths ON THE SERVER.
+exec ssh $SSH "cd '$REMOTE_ABS/deploy' && ./cgw \$(printf '%q ' "\$@")"
+WRAP
+chmod +x "$ROOT/deploy/$PROJECT/cgw"
+info ""
+info "${BOLD}Day-2 ops${RST} — from this laptop (forwarded over SSH):"
+info "  deploy/$PROJECT/cgw sync                          # refresh after pulls / branch switches"
+info "  deploy/$PROJECT/cgw status | logs -f | down"
+info "  deploy/$PROJECT/cgw add-repo <name> <server-path> [subtree...]"
+info "  deploy/$PROJECT/cgw remove-repo <name>"
+info "  (or on the server: cd '$REMOTE_ABS/deploy' && ./cgw …)"
