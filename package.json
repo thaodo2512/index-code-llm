@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Turn many code repositories into one searchable workspace for MCP clients, on top of CodeGraph.",
   "type": "module",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "bin": {
     "codegraph-workspace": "dist/cli.js"
   },

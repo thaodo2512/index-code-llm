@@ -160,4 +160,4 @@ codegraph-workspace serve       --http [--host H] [--port N] [--token T]   # MCP
 
 ## License
 
-MIT
+Apache-2.0 — Copyright 2026 Tinh Nguyen
