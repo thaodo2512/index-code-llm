@@ -48,6 +48,11 @@ and validating each answer — e.g. if a port is busy it offers the next free on
 # Directly ON the server (clone this repo there first). Prints the laptop-side
 # tunnel command, MCP config, and an optional laptop cgw wrapper.
 ./scripts/server_deploy.sh
+
+# Tear a deployment down completely — container, index volume, image, and the
+# generated deploy/<name>/ folder — e.g. to redo a deploy that went wrong.
+# Point it at a remote deployment's SSH wrapper and the server side is wiped too.
+./scripts/teardown.sh [deploy/<name>]
 ```
 
 `remote_deploy.sh` and `server_deploy.sh` produce the same kind of deployment — pick by where you

@@ -71,6 +71,70 @@ describe('local_deploy.sh (generate only, build declined)', () => {
   });
 });
 
+describe('teardown.sh', () => {
+  it('removes a local deployment folder after confirmation', async () => {
+    const dir = join(root, 'deploy-local');
+    await mkdir(dir);
+    await writeFile(
+      join(dir, 'docker-compose.yml'),
+      'services:\n  gateway:\n    image: codegraph-workspace:local\n',
+    );
+    await writeFile(join(dir, '.env'), 'COMPOSE_PROJECT_NAME=cgw-test\nCGW_TOKEN=x\n');
+
+    const r = await execa('bash', [join(scriptsDir, 'teardown.sh'), dir], {
+      input: 'y\n',
+      env: env(),
+      reject: false,
+    });
+    expect(r.exitCode, r.stderr).toBe(0);
+    await expect(stat(dir)).rejects.toThrow(); // folder is gone
+  });
+
+  it('aborts without touching anything when not confirmed', async () => {
+    const dir = join(root, 'deploy-keep');
+    await mkdir(dir);
+    await writeFile(join(dir, 'docker-compose.yml'), 'services: {}\n');
+
+    const r = await execa('bash', [join(scriptsDir, 'teardown.sh'), dir], {
+      input: 'n\n',
+      env: env(),
+      reject: false,
+    });
+    expect(r.exitCode).not.toBe(0);
+    expect((await stat(dir)).isDirectory()).toBe(true); // still there
+  });
+
+  it('forwards a remote teardown over SSH and removes the laptop wrapper', async () => {
+    const sshLog = join(root, 'ssh.log');
+    await writeFile(
+      join(stubBin, 'ssh'),
+      `#!/bin/sh\necho "$@" >> '${sshLog}'\nexit 0\n`,
+    );
+    await chmod(join(stubBin, 'ssh'), 0o755);
+
+    const dir = join(root, 'cgw-remote');
+    await mkdir(dir);
+    await writeFile(
+      join(dir, 'cgw'),
+      '#!/usr/bin/env bash\n' +
+        'exec ssh user@server "cd \'/srv/cgw/cgw-remote/deploy\' && ./cgw \\$(printf \'%q \' "\\$@")"\n',
+    );
+
+    const r = await execa('bash', [join(scriptsDir, 'teardown.sh'), dir], {
+      input: 'y\n',
+      env: env(),
+      reject: false,
+    });
+    expect(r.exitCode, r.stderr).toBe(0);
+
+    const log = await readFile(sshLog, 'utf-8');
+    expect(log).toContain("cd '/srv/cgw/cgw-remote/deploy' && docker compose down --volumes");
+    expect(log).toContain("rm -rf '/srv/cgw/cgw-remote'");
+    expect(log).toContain('docker rmi'); // image cleanup reached the server
+    await expect(stat(dir)).rejects.toThrow(); // laptop wrapper is gone
+  });
+});
+
 describe('cgw remove-repo', () => {
   async function cgwDir(): Promise<string> {
     const dir = join(root, 'cgw-deploy');
