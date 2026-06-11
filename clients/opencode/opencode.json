@@ -1,0 +1,22 @@
+{
+  "//": "Merge ONE entry into the mcp object of ~/.config/opencode/opencode.json (or opencode.json in your project). For agent guidance, opencode reads AGENTS.md — append clients/codex/AGENTS.md to ~/.config/opencode/AGENTS.md.",
+
+  "mcp": {
+
+    "workspace": {
+      "type": "remote",
+      "url": "http://127.0.0.1:<port>/mcp",
+      "headers": { "Authorization": "Bearer <token>" }
+    },
+
+    "workspace-stdio-local-docker": {
+      "type": "local",
+      "command": ["docker", "exec", "-i", "<container>", "codegraph-workspace", "serve", "--stdio"]
+    },
+
+    "workspace-stdio-ssh": {
+      "type": "local",
+      "command": ["ssh", "<server>", "docker", "exec", "-i", "<container>", "codegraph-workspace", "serve", "--stdio"]
+    }
+  }
+}

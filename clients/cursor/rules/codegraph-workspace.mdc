@@ -1,0 +1,17 @@
+---
+description: Use the codegraph-workspace MCP tools (workspace_*, ws_*) for any question about code location, call graphs, change impact, or cross-repo comparison in the indexed repos. Prefer them over grep and file search.
+alwaysApply: false
+---
+
+# Code workspace tools
+
+A multi-repo code index is available via the `workspace` MCP server. Prefer it over grep/file
+search for indexed repos — results are ranked, repo-tagged `file:line` references.
+
+- Start with `workspace_repos` (which repos exist), then `workspace_search {query, repos?, kind?,
+  limit?}` for any "where is / what is X" question across repos.
+- Drill down inside one repo with `ws_context`, `ws_node`, `ws_callers`, `ws_callees`; run
+  `ws_impact` before editing a shared symbol. Orient in unfamiliar repos with `ws_files` /
+  `ws_explore`. All `ws_*` tools take a `repo` argument.
+- Empty result ≠ absent: the index covers only configured subtrees and may miss macro-generated
+  symbols. The index is a snapshot — after pulls/branch switches suggest `./cgw sync`.

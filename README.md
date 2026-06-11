@@ -123,6 +123,10 @@ npm install -g codegraph-workspace
 
 ## Connect a client
 
+Ready-to-paste configs for **Claude Code, Codex, Cursor, and opencode** — plus an agent **skill**
+that teaches them to use the tools well (search before grep, check impact before editing, …) —
+live in [`clients/`](clients/README.md).
+
 Two transports are supported (the deploy scripts print a ready-to-paste config for you):
 
 **Streamable HTTP** (used by the Docker deploys) — point the client at the server's URL:

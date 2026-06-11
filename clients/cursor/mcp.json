@@ -1,0 +1,21 @@
+{
+  "//": "Merge ONE entry into ~/.cursor/mcp.json (user-wide) or <project>/.cursor/mcp.json. Same shape as Claude Code's config.",
+
+  "mcpServers": {
+
+    "workspace": {
+      "url": "http://127.0.0.1:<port>/mcp",
+      "headers": { "Authorization": "Bearer <token>" }
+    },
+
+    "workspace-stdio-local-docker": {
+      "command": "docker",
+      "args": ["exec", "-i", "<container>", "codegraph-workspace", "serve", "--stdio"]
+    },
+
+    "workspace-stdio-ssh": {
+      "command": "ssh",
+      "args": ["<server>", "docker", "exec", "-i", "<container>", "codegraph-workspace", "serve", "--stdio"]
+    }
+  }
+}

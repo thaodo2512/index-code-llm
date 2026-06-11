@@ -1,0 +1,31 @@
+{
+  "//": "Merge ONE of these entries into the mcpServers object of ~/.claude.json (user-wide) or <project>/.mcp.json (per project). Values in <angle brackets> come from your deploy script output.",
+
+  "mcpServers": {
+
+    "workspace": {
+      "type": "http",
+      "url": "http://127.0.0.1:<port>/mcp",
+      "headers": { "Authorization": "Bearer <token>" }
+    },
+
+    "workspace-stdio-local-docker": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["exec", "-i", "<container>", "codegraph-workspace", "serve", "--stdio"]
+    },
+
+    "workspace-stdio-ssh": {
+      "type": "stdio",
+      "command": "ssh",
+      "args": ["<server>", "docker", "exec", "-i", "<container>", "codegraph-workspace", "serve", "--stdio"]
+    },
+
+    "workspace-stdio-no-docker": {
+      "type": "stdio",
+      "command": "codegraph-workspace",
+      "args": ["serve", "--stdio"],
+      "env": { "CODEGRAPH_WORKSPACE_CONFIG": "/path/to/workspace.json" }
+    }
+  }
+}

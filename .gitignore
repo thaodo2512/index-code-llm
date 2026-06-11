@@ -26,3 +26,7 @@ coverage/
 # Generated deployments (machine-specific)
 deploy/
 .env
+
+# clients/ holds PUBLISHED sample configs & skills — re-include despite the
+# AI-config patterns above (those target our local files, not the templates)
+!clients/**

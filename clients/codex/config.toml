@@ -1,0 +1,25 @@
+# codegraph-workspace for Codex CLI — merge into ~/.codex/config.toml.
+# Pick ONE variant and name it [mcp_servers.workspace]. Values in <angle
+# brackets> come from your deploy script output.
+
+# --- stdio via local Docker (recommended for a local deploy) ---
+[mcp_servers.workspace]
+command = "docker"
+args = ["exec", "-i", "<container>", "codegraph-workspace", "serve", "--stdio"]
+
+# --- stdio over SSH (remote deploy, no tunnel needed) ---
+# [mcp_servers.workspace]
+# command = "ssh"
+# args = ["<server>", "docker", "exec", "-i", "<container>", "codegraph-workspace", "serve", "--stdio"]
+
+# --- stdio without Docker (codegraph-workspace installed via npm) ---
+# [mcp_servers.workspace]
+# command = "codegraph-workspace"
+# args = ["serve", "--stdio"]
+# env = { CODEGRAPH_WORKSPACE_CONFIG = "/path/to/workspace.json" }
+
+# --- Streamable HTTP (Docker deploy + SSH tunnel; needs a Codex version with
+#     HTTP MCP support) ---
+# [mcp_servers.workspace]
+# url = "http://127.0.0.1:<port>/mcp"
+# http_headers = { "Authorization" = "Bearer <token>" }
