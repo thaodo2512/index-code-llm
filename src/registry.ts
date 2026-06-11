@@ -10,6 +10,28 @@ export function resolveConfigPath(explicit?: string): string {
   return resolve(p);
 }
 
+/** Validate parsed registry JSON (schema + name/path invariants). */
+export function parseWorkspace(json: unknown, source: string): Workspace {
+  const parsed = WorkspaceSchema.safeParse(json);
+  if (!parsed.success) {
+    throw new Error(`Invalid workspace registry at ${source}:\n${parsed.error.toString()}`);
+  }
+  const ws = parsed.data;
+
+  const names = new Set<string>();
+  for (const repo of ws.repos) {
+    if (names.has(repo.name)) throw new Error(`Duplicate repo name in registry: "${repo.name}"`);
+    names.add(repo.name);
+    if (!isAbsolute(repo.path)) {
+      throw new Error(`Repo "${repo.name}" path must be absolute: ${repo.path}`);
+    }
+  }
+  if (!isAbsolute(ws.viewsDir)) {
+    throw new Error(`viewsDir must be an absolute path: ${ws.viewsDir}`);
+  }
+  return ws;
+}
+
 /** Load and validate the workspace registry from disk. */
 export function loadWorkspace(configPath?: string): Workspace {
   const path = resolveConfigPath(configPath);
@@ -28,24 +50,7 @@ export function loadWorkspace(configPath?: string): Workspace {
   } catch (e) {
     throw new Error(`Workspace registry at ${path} is not valid JSON: ${(e as Error).message}`);
   }
-  const parsed = WorkspaceSchema.safeParse(json);
-  if (!parsed.success) {
-    throw new Error(`Invalid workspace registry at ${path}:\n${parsed.error.toString()}`);
-  }
-  const ws = parsed.data;
-
-  const names = new Set<string>();
-  for (const repo of ws.repos) {
-    if (names.has(repo.name)) throw new Error(`Duplicate repo name in registry: "${repo.name}"`);
-    names.add(repo.name);
-    if (!isAbsolute(repo.path)) {
-      throw new Error(`Repo "${repo.name}" path must be absolute: ${repo.path}`);
-    }
-  }
-  if (!isAbsolute(ws.viewsDir)) {
-    throw new Error(`viewsDir must be an absolute path: ${ws.viewsDir}`);
-  }
-  return ws;
+  return parseWorkspace(json, path);
 }
 
 /** Absolute path of a repo's view directory (the CodeGraph project root). */

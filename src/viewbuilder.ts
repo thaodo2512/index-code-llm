@@ -30,7 +30,8 @@ export interface ViewResult {
   warnings: string[];
 }
 
-function validateScopeEntry(entry: string): void {
+/** Reject scope entries that could escape the repo (absolute paths, `..`). */
+export function validateScopeEntry(entry: string): void {
   if (entry === '.') return;
   const norm = posix.normalize(entry);
   if (norm.startsWith('/') || norm === '..' || norm.startsWith('../') || norm.includes('/../')) {

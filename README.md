@@ -136,12 +136,22 @@ so repeated sessions are instant.
 ## CLI
 
 ```
+codegraph-workspace add-repo    <name> <path> [-s <subtree...>] [--index]   # register a repo
+codegraph-workspace remove-repo <name> [--keep-view]   # unregister + delete its index data
 codegraph-workspace build-views [-r <repo...>]      # materialize views from the registry
 codegraph-workspace index       [-r <repo...>] [-f] # build views and full-index
 codegraph-workspace sync        [-r <repo...>]       # rebuild views and incrementally sync
 codegraph-workspace status      [-r <repo...>] [--freshness] [--json]
 codegraph-workspace serve       --stdio                          # MCP over stdio (default)
 codegraph-workspace serve       --http [--host H] [--port N] [--token T]   # MCP over HTTP
+```
+
+`add-repo` validates everything before writing (slug name, no duplicates, existing directory,
+safe scope entries) and updates `workspace.json` atomically, so you never have to hand-edit it:
+
+```bash
+codegraph-workspace add-repo linux /ws/linux -s kernel include --index
+codegraph-workspace remove-repo linux        # also deletes views/linux (the index)
 ```
 
 `--token` (or `CGW_TOKEN`) requires `Authorization: Bearer <token>` on every HTTP request.

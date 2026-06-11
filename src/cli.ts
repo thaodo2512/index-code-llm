@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { rm } from 'node:fs/promises';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { Command } from 'commander';
 import { repoStats } from './aggregate.js';
@@ -7,6 +8,7 @@ import { serveHttp } from './httpServer.js';
 import { indexRepo, syncRepo } from './indexer.js';
 import { buildView } from './viewbuilder.js';
 import { loadWorkspace, selectRepos, viewPath } from './registry.js';
+import { addRepo, removeRepo } from './registryEdit.js';
 
 const program = new Command();
 
@@ -58,6 +60,44 @@ program
       const r = await syncRepo(w, repo);
       console.log(r.action);
     }
+  });
+
+program
+  .command('add-repo')
+  .description('Register a repo in workspace.json (no hand-editing)')
+  .argument('<name>', 'Repo name (slug: A-Z a-z 0-9 . _ -)')
+  .argument('<path>', 'Path to the repository (made absolute)')
+  .option('-s, --scope <subtrees...>', "Repo-relative subtrees to index ('.' = whole repo)", ['.'])
+  .option('--index', 'Build the view and index it right away')
+  .action(async (name: string, path: string, o: { scope: string[]; index?: boolean }) => {
+    const r = addRepo(program.opts().config, { name, path, scope: o.scope });
+    console.log(`✓ added ${name} (scope: ${JSON.stringify(o.scope)}) → ${r.configPath}`);
+    r.warnings.forEach((m) => console.warn(`  ! ${m}`));
+    if (o.index) {
+      const [repo] = selectRepos(r.workspace, [name]);
+      process.stdout.write(`indexing ${name} … `);
+      const res = await indexRepo(r.workspace, repo!, false);
+      console.log(`${res.action} (${res.symlinks} subtree symlink(s))`);
+      res.warnings.forEach((m) => console.warn(`  ! ${m}`));
+    } else {
+      console.log(`next: codegraph-workspace index -r ${name}`);
+    }
+  });
+
+program
+  .command('remove-repo')
+  .description('Remove a repo from workspace.json and delete its view + index data')
+  .argument('<name>', 'Repo name to remove')
+  .option('--keep-view', 'Keep the view directory (index data) on disk')
+  .action(async (name: string, o: { keepView?: boolean }) => {
+    const r = removeRepo(program.opts().config, name);
+    console.log(`✓ removed ${name} from ${r.configPath}`);
+    if (o.keepView) {
+      console.log(`view kept at ${r.viewDir}`);
+      return;
+    }
+    await rm(r.viewDir, { recursive: true, force: true });
+    console.log(`✓ deleted view + index data: ${r.viewDir}`);
   });
 
 program
