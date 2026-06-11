@@ -42,9 +42,16 @@ and validating each answer — e.g. if a port is busy it offers the next free on
 # On your laptop: gateway + your repos, all local. Client connects over localhost.
 ./scripts/local_deploy.sh
 
-# On a powerful server: index there, query from your laptop over SSH.
+# From your laptop, deploying TO a server over SSH (copies the project there for you).
 ./scripts/remote_deploy.sh
+
+# Directly ON the server (clone this repo there first). Prints the laptop-side
+# tunnel command, MCP config, and an optional laptop cgw wrapper.
+./scripts/server_deploy.sh
 ```
+
+`remote_deploy.sh` and `server_deploy.sh` produce the same kind of deployment — pick by where you
+prefer to type: the former drives everything from the laptop, the latter runs on the server.
 
 Each script generates a `deploy/<name>/` folder (`docker-compose.yml`, `workspace.json`, `.env`),
 builds the image, starts the container, indexes your repos, and prints the exact MCP client config
