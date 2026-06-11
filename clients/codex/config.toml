@@ -23,3 +23,26 @@ args = ["exec", "-i", "<container>", "codegraph-workspace", "serve", "--stdio"]
 # [mcp_servers.workspace]
 # url = "http://127.0.0.1:<port>/mcp"
 # http_headers = { "Authorization" = "Bearer <token>" }
+
+# ============================================================================
+# Fully worked example. Suppose the deploy script finished with:
+#   server 192.168.1.50, SSH login "ops", deployment name "cgw-remote",
+#   port 8765, token 4f7d2a91c6e85b30d9f17428a6c3b5e2d801f9347b62c0aa
+#
+# stdio over SSH — Codex itself runs this command every session. It means:
+# "ssh into ops@192.168.1.50, there run docker exec -i cgw-remote
+# codegraph-workspace serve --stdio" (start the MCP server inside the
+# cgw-remote container). SSH is both transport and auth — no tunnel, no open
+# port, no token:
+#
+# [mcp_servers.workspace]
+# command = "ssh"
+# args = ["ops@192.168.1.50", "docker", "exec", "-i", "cgw-remote", "codegraph-workspace", "serve", "--stdio"]
+#
+# Same deployment over HTTP — first keep a tunnel running yourself:
+#   ssh -f -N -L 8765:127.0.0.1:8765 ops@192.168.1.50
+#
+# [mcp_servers.workspace]
+# url = "http://127.0.0.1:8765/mcp"
+# http_headers = { "Authorization" = "Bearer 4f7d2a91c6e85b30d9f17428a6c3b5e2d801f9347b62c0aa" }
+# ============================================================================
