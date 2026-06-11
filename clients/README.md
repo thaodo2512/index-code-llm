@@ -85,12 +85,29 @@ tunnel makes it appear on yours.
 Configs make the tools *available*; the skill teaches the agent *when and how* to reach for them
 (search before grep, trace callers before editing, compare across repos, …).
 
+All four agents read the same Agent Skills format (a folder with a `SKILL.md`), so the single
+skill at [`skills/code-workspace`](skills/code-workspace/SKILL.md) works everywhere — only the
+install directory differs:
+
+| Agent | Install user-wide | Per-project alternative |
+|---|---|---|
+| Claude Code | `cp -r clients/skills/code-workspace ~/.claude/skills/` | `<project>/.claude/skills/` |
+| Codex CLI | `cp -r clients/skills/code-workspace ~/.agents/skills/` | `<repo>/.agents/skills/` |
+| opencode | reads `~/.claude/skills/` **and** `~/.agents/skills/` — either copy above already works | `<project>/.agents/skills/` |
+| Cursor | `cp -r clients/skills/code-workspace ~/.cursor/skills/` (also reads `~/.agents/skills/`) | `<project>/.agents/skills/` |
+
+In practice two copies cover everything: `~/.claude/skills/` (Claude Code) and `~/.agents/skills/`
+(Codex, opencode, Cursor). Agents pick the skill up on their own when a task matches its
+`description`; in Codex you can also invoke it explicitly with `$code-workspace` or browse
+installed skills with `/skills`.
+
+**Always-on guidance** — loaded every session, complements the on-demand skill:
+
 | Agent | What | Install |
 |---|---|---|
-| Claude Code | skill | `cp -r clients/claude-code/skills/code-workspace ~/.claude/skills/` (user-wide) or into `<project>/.claude/skills/` |
 | Codex CLI | steering doc | append [`codex/AGENTS.md`](codex/AGENTS.md) to `~/.codex/AGENTS.md` (global) or your project's `AGENTS.md` |
+| opencode | same doc | append [`codex/AGENTS.md`](codex/AGENTS.md) to `~/.config/opencode/AGENTS.md` — opencode reads the same format |
 | Cursor | rule | `cp clients/cursor/rules/codegraph-workspace.mdc <project>/.cursor/rules/` |
-| opencode | rule file | append [`codex/AGENTS.md`](codex/AGENTS.md) to `~/.config/opencode/AGENTS.md` — opencode reads the same format |
 
 ## 4 · Smoke test
 
